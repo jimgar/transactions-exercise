@@ -1,0 +1,84 @@
+---
+pagetitle: "`r paste('Transactions Report', Sys.Date())`"
+format: 
+  html:
+    page-layout: full
+    embed-resources: true
+toc: true
+toc-expand: true
+execute:
+  echo: false
+  warning: false
+theme:
+  - pulse
+html-table-processing: none
+engine: knitr
+---
+
+# Title goes here
+
+Hello there.
+
+```{r}
+#| label: globals
+source(file.path("R", "functions.R"))
+
+TRANSACTIONS_PATH_RAW <- "data/raw/current-acc-trans.csv"
+TRANSACTIONS_PATH_CLEAN <- "data/clean/current-acc-trans.csv"
+ACCOUNTS_PATH_RAW <- "data/raw/accounts.csv"
+ACCOUNTS_PATH_CLEAN <- "data/clean/accounts.csv"
+```
+
+```{r}
+#| label: clean-accounts-csv
+#| output: false
+
+# Cleaning up the accounts dataset.
+# The cleaning is minimal - I have only done what is required for the tasks.
+
+# During initial EDA of the `account_type` col I saw there were both
+# `current` and `current+` account types. I wondered if the plus symbol was a
+# typo, but there are 6,688 and 1,366 of each, respectively. This seems like
+# too many `current+` to be an accident, so I didn't clean and combine the two
+# groups.
+
+# The regex below removes all whitespace (\s) and non-word (\W) chars from
+# `title`, so that e.g. `Mr.` becomes `Mr`. Otherwise they appear as two
+# separate categories.
+
+# There's also a rogue single space in the `account_type` column.
+# I decided to clean that at read-time by setting `nullstr`.
+
+ddbExecute(
+  "
+  COPY (
+    SELECT *
+      REPLACE (
+        title.regexp_replace('\\s|\\W', '', 'g').lower() AS title,
+        account_type.trim().lower() AS account_type
+      )
+      FROM read_csv(?, nullstr = [' ', ''])
+  ) TO ?;
+  ",
+  from_path = ACCOUNTS_PATH_RAW,
+  to_path = ACCOUNTS_PATH_CLEAN
+)
+```
+
+```{r}
+#| label: titles
+
+# 1. Count the number of account holders with each title
+
+n_titles <- ddbGetQuery(
+  "
+  SELECT title as Title, COUNT(*) as Count
+  FROM ?
+  GROUP BY title
+  ORDER By Count DESC;
+  ",
+  from = ACCOUNTS_PATH_CLEAN
+)
+
+n_titles
+```
