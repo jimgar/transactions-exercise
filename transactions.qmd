@@ -106,3 +106,26 @@ title_vs_account_type <- ddbGetQuery(
 
 title_vs_account_type
 ```
+
+```{r}
+#| label: avg-overdraft-limit-by-title-and-account-type
+
+# 3. Produce a cross-table showing the average overdraft_limit by title and account_type
+
+# Assuming that "average" is the mean
+avg_overdraft_limits <- ddbGetQuery(
+  "
+  SELECT title as Title,
+         account_type as 'Account Type',
+         avg(overdraft_limit) as 'Average Overdraft Limit'
+  FROM ?
+  WHERE account_type IS NOT NULL
+  GROUP BY ALL
+  ORDER BY ALL;
+  ",
+  from = ACCOUNTS_PATH_CLEAN
+)
+
+avg_overdraft_limits
+```
+
