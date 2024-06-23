@@ -207,6 +207,7 @@ summary(transactions_per_customer)
 
 ```{r}
 #| label: join-transaction-summary-to-accounts
+#| output: false
 
 # 6. Now add the results from the previous step to the accounts dataset, in an appropriate data
 # architecture to answer part 2.
