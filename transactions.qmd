@@ -29,6 +29,8 @@ TRANSACTIONS_PATH_RAW <- "data/raw/current-acc-trans.csv"
 TRANSACTIONS_PATH_CLEAN <- "data/clean/current-acc-trans.csv"
 ACCOUNTS_PATH_RAW <- "data/raw/accounts.csv"
 ACCOUNTS_PATH_CLEAN <- "data/clean/accounts.csv"
+TRANSACTIONS_PER_CUSTOMER_PATH <- "data/results/transactions-per-customer.csv"
+RESULTS_PATH <- "data/results/merged.csv"
 ```
 
 ```{r}
@@ -175,19 +177,19 @@ overdrafts_summed
 # filtered down to only include matches from the right table.
 transactions_per_customer <- ddbGetQuery(
   "
-  SELECT acc_number as 'Account Number',
-         count(*) as 'Transactions (Count)',
-         sum(amount) as 'Total Value'
+  SELECT acc_number as account_number,
+         count(*) as transactions_count,
+         sum(amount) as total_transaction_value
   FROM ? t
   SEMI JOIN ? a
          ON t.acc_number = a.account_number
   GROUP BY t.acc_number
-  ORDER BY 'Transactions (Count)';
+  ORDER BY transactions_count;
   ",
   t = TRANSACTIONS_PATH_CLEAN,
   a = ACCOUNTS_PATH_CLEAN
 ) |>
-  dplyr::arrange(dplyr::desc(`Transactions (Count)`))
+  dplyr::arrange(dplyr::desc(transactions_count))
 
 # A few accounts have huge number of transactions, e.g. 11336875 has 693
 # Took a look - seems fine. Though they seem to be up at all hours of the day!
@@ -201,4 +203,29 @@ transactions_per_customer <- ddbGetQuery(
 # )
 
 summary(transactions_per_customer)
+```
+
+```{r}
+#| label: join-transaction-summary-to-accounts
+
+# 6. Now add the results from the previous step to the accounts dataset, in an appropriate data
+# architecture to answer part 2.
+con <- DBI::dbConnect(duckdb::duckdb())
+duckdb::duckdb_register(con, "transactions_per_customer", transactions_per_customer)
+DBI::dbExecute(con, "COPY transactions_per_customer TO 'data/results/transactions-per-customer.csv';")
+DBI::dbDisconnect(con)
+
+ddbExecute(
+  "
+  COPY (
+    SELECT *
+    FROM ? a
+    LEFT JOIN ? t_agg
+           ON a.account_number = t_agg.account_number
+    ) TO ?;
+  ",
+  a = ACCOUNTS_PATH_CLEAN,
+  t_agg = TRANSACTIONS_PER_CUSTOMER_PATH,
+  out = RESULTS_PATH
+)
 ```
