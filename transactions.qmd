@@ -129,3 +129,76 @@ avg_overdraft_limits <- ddbGetQuery(
 avg_overdraft_limits
 ```
 
+```{r}
+#| label: overdraft-sum-by-title-and-account-type
+
+# 4. Produce a cross-table showing the aggregate overdraft_limit (sum of) by
+#  title and account_type
+
+overdrafts_summed <- ddbGetQuery(
+  "
+  SELECT title as Title,
+         account_type as 'Account Type',
+         sum(overdraft_limit) as 'Overdraft Limit Sum'
+  FROM ?
+  WHERE account_type IS NOT NULL
+  GROUP BY ALL
+  ORDER BY ALL;
+  ",
+  from = ACCOUNTS_PATH_CLEAN
+)
+
+overdrafts_summed
+```
+
+```{r}
+#| label: transactions-per-customer
+
+# 5. For each customer count the number of transactions in the transaction data
+# and compute the total value of those transactions for each customer
+
+# There are 10,000 account numbers in accounts.csv
+# And 64,498 unique account numbers in the transaction data
+# I'm guessing that the people in accounts.csv are our customers. We want to
+# filter down the transaction data to only include them.
+
+# To get the unique counts of accounts
+# ddbGetQuery("select count(distinct account_number) from 'data/clean/accounts.csv';")
+# ddbGetQuery("select count(distinct acc_number) from 'data/clean/current-acc-trans.csv';")
+
+# Due diligence: number of unique `transaction_ids` is equal to the transaction
+# dataset's nrow
+# ddbGetQuery("select count(distinct trans_id) from 'data/clean/current-acc-trans.csv';")
+# ddbGetQuery("select count(*) from 'data/clean/current-acc-trans.csv';")
+
+# Using a semi join here. It's a kind of filtering join. The left table gets
+# filtered down to only include matches from the right table.
+transactions_per_customer <- ddbGetQuery(
+  "
+  SELECT acc_number as 'Account Number',
+         count(*) as 'Transactions (Count)',
+         sum(amount) as 'Total Value'
+  FROM ? t
+  SEMI JOIN ? a
+         ON t.acc_number = a.account_number
+  GROUP BY t.acc_number
+  ORDER BY 'Transactions (Count)';
+  ",
+  t = TRANSACTIONS_PATH_CLEAN,
+  a = ACCOUNTS_PATH_CLEAN
+) |>
+  dplyr::arrange(dplyr::desc(`Transactions (Count)`))
+
+# A few accounts have huge number of transactions, e.g. 11336875 has 693
+# Took a look - seems fine. Though they seem to be up at all hours of the day!
+# dplyr::arrange(
+#   ddbGetQuery(
+#     "select *
+#         from 'data/clean//current-acc-trans.csv'
+#         where acc_number = '11336875';"
+#   ),
+#   trans_date
+# )
+
+summary(transactions_per_customer)
+```
