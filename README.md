@@ -1,6 +1,18 @@
 # Transactions exercise
 
+## Dev environment
+
+The code is written in R and presented via Quarto. 
+
+In the interests of reproducibility I've made a devcontainer, which turns VS Code into a fully operational R IDE via Docker. Instead of building and running the image via the terminal you can install the VS Code devcontainer extension and launch the following via the command palette: `Dev Containers: Open Folder in Container`
+
+VS Code will then re-open with the container operating as the backend. You can now use `radian`, have syntax-highlighting, linting, formatting, can preview Quarto renders, and so on.
+
+The Dockerfile and devcontainer configuration are both in the `.devcontainer/` directory. It is possible to run the Dockerfile via the cli with `docker build . . .` but your mileage may vary - for example, I don't know if `radian` will work fully as expected without the settings from `.devcontainer/devcontainer.json`.
+
 ## Initial datasets headers
+
+For my reference.
 
 ```shell
 head -n 1 data/current-acc-trans.csv
@@ -37,11 +49,13 @@ cash_card_number
 
 ## If I had more time
 
-A more structured approach to documenting the EDA would have been nice.
+A more structured approach to documenting the EDA.
 
 Schemas for each of the tables throughout this workflow. I think it's particularly important that account numbers are not allowed to be guessed by e.g. the DuckDB csv parser as numeric - they should always be treated as strings.
 
-Unit tests via `testthat` for the functions in `R/functions.R` would have been nice, too.
+Unit tests via `testthat` for the functions in `R/functions.R` would have been nice.
+
+It's great to have a devcontainer available, but it would be better to also have the equivalent non-devcontainer Dockerfile for `rocker/r-ver:4.4` alongside the devcontainer one. It's probably a slimmer image, and not everyone uses VS Code as their IDE.
 
 And of course, better-looking visualisations.
 
