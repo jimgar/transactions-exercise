@@ -1,0 +1,64 @@
+{
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "name": "R dev environment",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // Annoying bug in VS Code means we have to set specify extensions.verifySignature to false.
+        // Otherwise extensions will not install, which is part of the point of having a devcontainer!
+        // See https://github.com/microsoft/vscode/issues/175705
+        "extensions.verifySignature": false,
+        "[json]": {
+          "editor.defaultFormatter": "vscode.json-language-features",
+          "editor.formatOnSave": true,
+          "editor.tabSize": 2,
+          "editor.detectIndentation": false
+        },
+        "[jsonc]": {
+          "editor.defaultFormatter": "vscode.json-language-features",
+          "editor.formatOnSave": true,
+          "editor.tabSize": 2,
+          "editor.detectIndentation": false
+        },
+        "[r]": {
+          "editor.formatOnSave": true,
+          "editor.tabSize": 2,
+          "editor.detectIndentation": false
+        },
+        "r.bracketedPaste": true,
+        "r.rpath.linux": "/usr/local/bin/R",
+        "r.rterm.linux": "/usr/local/bin/radian",
+        "r.rterm.option": [
+          "--no-save",
+          "--no-restore",
+          "--r-binary=/usr/local/bin/R"
+        ],
+        "r.plot.useHttpgd": true,
+        "r.sessionWatcher": true,
+        "r.workspaceViewer.removeHiddenItems": true,
+        "editor.formatOnSave": true,
+        "[csv][dynamic csv][tsv][csv (semicolon)][csv (pipe)]": {
+          "editor.stickyScroll.enabled": true
+        },
+        "files.associations": {
+          "*.dat": "csv (pipe)"
+        },
+        "rainbow_csv.align_in_scratch_file": true
+      },
+      "extensions": [
+        // R & Quarto
+        "reditorsupport.r",
+        "quarto.quarto",
+        // Docker syntax highlighting etc
+        "ms-azuretools.vscode-docker",
+        // Documentation tools
+        "yzhang.markdown-all-in-one",
+        "DavidAnson.vscode-markdownlint",
+        // csv viewing
+        "mechatroner.rainbow-csv"
+      ]
+    }
+  }
+}
