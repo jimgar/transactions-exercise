@@ -1,14 +1,32 @@
 # Transactions exercise
 
+My answers for part 1 of the exercise are in `part1.html`, and the report for part 2 is in `part2.html`.
+
 ## Dev environment
 
-The code is written in R and presented via Quarto. 
+The code is written in R and rendered via Quarto.
 
 In the interests of reproducibility I've made a devcontainer, which turns VS Code into a fully operational R IDE via Docker. Instead of building and running the image via the terminal you can install the VS Code devcontainer extension and launch the following via the command palette: `Dev Containers: Open Folder in Container`
 
 VS Code will then re-open with the container operating as the backend. You can now use `radian`, have syntax-highlighting, linting, formatting, can preview Quarto renders, and so on.
 
 The Dockerfile and devcontainer configuration are both in the `.devcontainer/` directory. It is possible to run the Dockerfile via the cli with `docker build . . .` but your mileage may vary - for example, I don't know if `radian` will work fully as expected without the settings from `.devcontainer/devcontainer.json`.
+
+## Running the report
+
+Put `accounts.csv` into `data/raw/`
+
+Put `current-acc-trans.csv` into both `data/raw/` and `data/clean/`
+
+If you have the devcontainer running you can render the outputs by running the following line in a (bash) terminal
+
+```shell
+quarto render
+```
+
+This will render all of the `.qmd` documents into HMTL outputs. You should see them appear at the root of the project folder.
+
+If you have your own local setup for R and Quarto you can see the packages needed by looking at the `library()` calls in `part1.qmd` and `part2.qmd`. This project was rendered using Quarto v1.4.551.
 
 ## Initial datasets headers
 
