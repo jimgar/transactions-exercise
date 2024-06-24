@@ -1,5 +1,7 @@
 project:
   title: "Transactions report"
-
+theme: 
+  - pulse
+  - custom.scss
 
 
