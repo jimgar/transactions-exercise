@@ -1,4 +1,4 @@
 *.csv
-
+*.html
 /.quarto/
 .DS_Store
