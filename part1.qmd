@@ -1,5 +1,5 @@
 ---
-pagetitle: "`r paste('Transactions Report', Sys.Date())`"
+pagetitle: "`r paste('Transactions exercise part 1', Sys.Date())`"
 format: 
   html:
     page-layout: full
@@ -7,19 +7,28 @@ format:
 toc: true
 toc-expand: true
 execute:
-  echo: false
+  echo: true
   warning: false
-theme:
-  - pulse
 html-table-processing: none
 engine: knitr
 ---
 
 {{< include header.qmd >}}
 
-# Title goes here
+# Part 1
 
-Hello there.
+## Setup
+
+### Libraries
+
+```{r}
+#| label: libraries
+library(DBI)
+library(dplyr)
+library(duckdb)
+```
+
+### Globals
 
 ```{r}
 #| label: globals
@@ -33,25 +42,28 @@ TRANSACTIONS_PER_CUSTOMER_PATH <- "data/results/transactions-per-customer.csv"
 RESULTS_PATH <- "data/results/merged.csv"
 ```
 
+## Clean
+
+Cleaning up the accounts dataset.
+ 
+The cleaning is minimal - I have only done what is required for the tasks.
+
+During initial EDA of the `account_type` col I saw there were both
+`current` and `current+` account types. I wondered if the plus symbol was a
+typo, but there are 6,688 and 1,366 of each, respectively. This seems like
+too many `current+` to be an accident, so I didn't clean and combine the two
+groups.
+
+The regex below removes all whitespace `\s` and non-word `\W` chars from
+`title`, so that e.g. `Mr.` becomes `Mr` - Otherwise they appear as two
+separate categories.
+
+There's also a rogue single space in a row in the `account_type` column.
+I decided to clean that at read-time by setting `nullstr`.
+
 ```{r}
 #| label: clean-accounts-csv
 #| output: false
-
-# Cleaning up the accounts dataset.
-# The cleaning is minimal - I have only done what is required for the tasks.
-
-# During initial EDA of the `account_type` col I saw there were both
-# `current` and `current+` account types. I wondered if the plus symbol was a
-# typo, but there are 6,688 and 1,366 of each, respectively. This seems like
-# too many `current+` to be an accident, so I didn't clean and combine the two
-# groups.
-
-# The regex below removes all whitespace (\s) and non-word (\W) chars from
-# `title`, so that e.g. `Mr.` becomes `Mr`. Otherwise they appear as two
-# separate categories.
-
-# There's also a rogue single space in the `account_type` column.
-# I decided to clean that at read-time by setting `nullstr`.
 
 ddbExecute(
   "
@@ -69,10 +81,16 @@ ddbExecute(
 )
 ```
 
+## 1. Titles
+
+::: {.callout-note}
+Count the number of account holders with each title
+:::
+
+I'm not sure about the group `m` in the results. In real life I'd want to be more familiar with this - is it real? Or just a common typo for `Mr` and `Ms`? Left it in for now.
+
 ```{r}
 #| label: titles
-
-# 1. Count the number of account holders with each title
 
 n_titles <- ddbGetQuery(
   "
@@ -87,11 +105,14 @@ n_titles <- ddbGetQuery(
 n_titles
 ```
 
+## 2. Account holders by title and account type
+
+::: {.callout-note}
+Produce a cross-table showing the number of account holders broken down by title and account_type (i.e. a count of the number of people with each combination of possible account types and titles)
+:::
+
 ```{r}
 #| label: title-vs-account-type
-
-# 2. Produce a cross-table showing the number of account holders broken down by title and
-# account_type (i.e. a count of the number of people with each combination of possible account types and titles)
 
 title_vs_account_type <- ddbGetQuery(
   "
@@ -109,12 +130,17 @@ title_vs_account_type <- ddbGetQuery(
 title_vs_account_type
 ```
 
+## 3. Average overdraft limit by title and account type
+
+::: {.callout-note}
+Produce a cross-table showing the average overdraft_limit by title and account_type
+:::
+
+Assuming that "average" is the mean
+
 ```{r}
 #| label: avg-overdraft-limit-by-title-and-account-type
 
-# 3. Produce a cross-table showing the average overdraft_limit by title and account_type
-
-# Assuming that "average" is the mean
 avg_overdraft_limits <- ddbGetQuery(
   "
   SELECT title as Title,
@@ -131,11 +157,14 @@ avg_overdraft_limits <- ddbGetQuery(
 avg_overdraft_limits
 ```
 
+## 4. Overdraft limit summed by title and account type
+
+::: {.callout-note}
+Produce a cross-table showing the aggregate `overdraft_limit` (sum of) by `title` and `account_type`
+:::
+
 ```{r}
 #| label: overdraft-sum-by-title-and-account-type
-
-# 4. Produce a cross-table showing the aggregate overdraft_limit (sum of) by
-#  title and account_type
 
 overdrafts_summed <- ddbGetQuery(
   "
@@ -153,28 +182,39 @@ overdrafts_summed <- ddbGetQuery(
 overdrafts_summed
 ```
 
+## 5. Transactions per customer
+
+::: {.callout-note}
+For each customer count the number of transactions in the transaction data and compute the total value of those transactions for each customer
+:::
+
+There are 10,000 account numbers in accounts.csv
+And 64,498 unique account numbers in the transaction data
+
+I'm guessing that the people in accounts.csv are our customers. So I filter down the transaction data to only include them.
+
+To get the unique counts of accounts
+```{r}
+list(
+  ddbGetQuery("select count(distinct account_number) from 'data/clean/accounts.csv';"),
+  ddbGetQuery("select count(distinct acc_number) from 'data/clean/current-acc-trans.csv';")
+)
+```
+
+Due diligence: confirmed that the number of unique `transaction_ids` is equal to the transaction dataset's nrow
+```{r}
+list(
+  ddbGetQuery("select count(distinct trans_id) from 'data/clean/current-acc-trans.csv';"),
+  ddbGetQuery("select count(*) from 'data/clean/current-acc-trans.csv';")
+)
+```
+
+Using a semi join here. It's a kind of filtering join. The left table gets
+filtered down to only include matches from the right table.
+
 ```{r}
 #| label: transactions-per-customer
 
-# 5. For each customer count the number of transactions in the transaction data
-# and compute the total value of those transactions for each customer
-
-# There are 10,000 account numbers in accounts.csv
-# And 64,498 unique account numbers in the transaction data
-# I'm guessing that the people in accounts.csv are our customers. We want to
-# filter down the transaction data to only include them.
-
-# To get the unique counts of accounts
-# ddbGetQuery("select count(distinct account_number) from 'data/clean/accounts.csv';")
-# ddbGetQuery("select count(distinct acc_number) from 'data/clean/current-acc-trans.csv';")
-
-# Due diligence: number of unique `transaction_ids` is equal to the transaction
-# dataset's nrow
-# ddbGetQuery("select count(distinct trans_id) from 'data/clean/current-acc-trans.csv';")
-# ddbGetQuery("select count(*) from 'data/clean/current-acc-trans.csv';")
-
-# Using a semi join here. It's a kind of filtering join. The left table gets
-# filtered down to only include matches from the right table.
 transactions_per_customer <- ddbGetQuery(
   "
   SELECT acc_number as account_number,
@@ -192,7 +232,8 @@ transactions_per_customer <- ddbGetQuery(
   dplyr::arrange(dplyr::desc(transactions_count))
 
 # A few accounts have huge number of transactions, e.g. 11336875 has 693
-# Took a look - seems fine. Though they seem to be up at all hours of the day!
+# Took a look at the individual records - seems fine... Though they seem to be
+# awake at all hours of the day!
 # dplyr::arrange(
 #   ddbGetQuery(
 #     "select *
@@ -205,12 +246,16 @@ transactions_per_customer <- ddbGetQuery(
 summary(transactions_per_customer)
 ```
 
+## 6. Join transaction summary to accounts
+
+::: {.callout-note}
+Now add the results from the previous step to the accounts dataset, in an appropriate data architecture to answer part 2.
+:::
+
 ```{r}
 #| label: join-transaction-summary-to-accounts
 #| output: false
 
-# 6. Now add the results from the previous step to the accounts dataset, in an appropriate data
-# architecture to answer part 2.
 con <- DBI::dbConnect(duckdb::duckdb())
 duckdb::duckdb_register(con, "transactions_per_customer", transactions_per_customer)
 DBI::dbExecute(con, "COPY transactions_per_customer TO 'data/results/transactions-per-customer.csv';")
