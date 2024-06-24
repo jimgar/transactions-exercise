@@ -12,7 +12,9 @@ RUN R -e "options(warn = 2); pak::pak( \
     c( \ 
     'dbplyr', \ 
     'dplyr', \
-    'duckdb' \ 
+    'duckdb', \ 
+    'ggplot2' \
+    'tinytable' \
     ))"
 
 # Latest stable release. See 'Specific Quarto version' at
