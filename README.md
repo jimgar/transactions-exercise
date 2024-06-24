@@ -75,6 +75,8 @@ Unit tests via `testthat` for the functions in `R/functions.R` would have been n
 
 It's great to have a devcontainer available, but it would be better to also have the equivalent non-devcontainer Dockerfile for `rocker/r-ver:4.4` alongside the devcontainer one. It's probably a slimmer image, and not everyone uses VS Code as their IDE.
 
+Code for the account open/close dates analysis could potentially be re-worked. I think it would be interesting to see the two plots faceted by account type.
+
 And of course, better-looking visualisations.
 
 ## Choice of DuckDB
