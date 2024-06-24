@@ -1,0 +1,217 @@
+---
+pagetitle: "`r paste('Transactions exercise part 2', Sys.Date())`"
+format: 
+  html:
+    page-layout: full
+    embed-resources: true
+toc: true
+toc-expand: true
+execute:
+  echo: false
+  warning: false
+html-table-processing: none
+engine: knitr
+---
+
+{{< include header.qmd >}}
+
+# Customer Transactions Report
+
+If this were a real report I would welcome the reader here and provide any context they require.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+```{r}
+#| label: libraries
+library(DBI)
+library(dplyr)
+library(duckdb)
+library(ggplot2)
+library(tinytable)
+```
+
+```{r}
+#| label: globals
+source(file.path("R", "functions.R"))
+DATA_PATH <- "data/results/merged.csv"
+TRANSACTIONS_PATH <- "data/clean/current-acc-trans.csv"
+```
+
+```{r}
+#| label: import
+df_raw <- ddbGetQuery("SELECT * FROM ?;", df = DATA_PATH)
+```
+
+```{r}
+#| label: clean
+
+# Need a wee bit of cleaning that I didn't come across for part 1. No time to
+# go back so just going to do it here.
+df <- df_raw |>
+  dplyr::filter(
+    !is.na(account_type), # 2 or 3 of these
+    close_date < as.POSIXct("2019-10-31 UTC") | is.na(close_date) # couple of outliers
+  )
+```
+
+## Distribution of overdraft limits
+
+```{r}
+#| label: distribution-of-overdraft-limits
+df |>
+  ggplot(aes(overdraft_limit, account_type)) +
+  geom_jitter(size = 1.5, colour = "purple", alpha = 0.2) +
+  theme_minimal()
+```
+
+## Relationship between account open and close dates
+
+```{r}
+#| label: account-open-date-vs-account-close-date
+df |>
+  select(open_date, close_date) |>
+  mutate(diff = close_date - open_date) |>
+  mutate(diff = ifelse(is.na(diff), sample(6200:7600, sum(is.na(diff)), replace = TRUE), diff)) |>
+  ggplot((aes(open_date, diff))) +
+  geom_point(size = 1.5, colour = "purple", alpha = 0.2) +
+  theme_minimal()
+```
+
+```{r}
+df |>
+  ggplot() +
+  geom_freqpoly(aes(as.Date(open_date)), binwidth = 30, colour = "green") + 
+  geom_freqpoly(aes(as.Date(close_date)), binwidth = 30, colour = "red")
+```
+```{r}
+df |>
+  dplyr::mutate(acc_status = ifelse(is.na(close_date), "open", "closed")) |>
+  ggplot(aes(as.Date(open_date), colour = acc_status, fill = acc_status)) +
+  geom_density(adjust = 0.2, alpha = 0.1) +
+  xlim(as.Date("2002-01-01"), as.Date("2019-01-01")) +
+  theme_minimal() +
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank()
+  )
+```
+
+## Customers
+
+### Highest transaction value
+
+```{r}
+#| label: highest-transaction-value
+htv <- df |>
+  dplyr::filter(
+    total_transaction_value == max(total_transaction_value, na.rm = TRUE)
+    ) 
+```
+
+The customer with the highest overall transaction value is account number `r as.character(htv$account_number)`, with £`r formatC(htv$total_transaction_value, big.mark = ",", format = "f", digits = 0)`.
+
+## Highest number of transactions
+
+The 10 customers with the highest number of transactions are
+
+```{r}
+df |>
+  dplyr::select(account_number, transactions_count) |>
+  dplyr::filter(!is.na(transactions_count)) |>
+  dplyr::arrange(dplyr::desc(transactions_count)) |>
+  dplyr::slice_head(n = 10) |>
+  dplyr::rename(
+    "Account Number" = account_number,
+    "Transactions Count" = transactions_count
+  ) |>
+  tinytable::tt(theme = "void") |>
+  tinytable::style_tt(j = c(1, 2), align = "c") |>
+  tinytable::style_tt(
+    i = c(0, 10), 
+    line = "tb", 
+    line_width = 0.1,
+    line_color = "#593196"
+  ) |>
+  tinytable::style_tt(
+    i = c(1, 3, 5, 7, 9), 
+    background = "#593196",
+    color = "white"
+  )
+```
+
+## Lowest transaction value
+```{r}
+#| label: lowest-transaction-value
+ltv <- df |>
+  dplyr::filter(
+    total_transaction_value == min(total_transaction_value, na.rm = TRUE)
+    ) 
+```
+
+The customer with the lowest overall transaction value is account number `r as.character(ltv$account_number)`, with £`r formatC(ltv$total_transaction_value, big.mark = ",", format = "f", digits = 0)`.
+
+## Transactions per month
+
+```{r}
+#| label: customers-with-transactions-per-month
+
+c_per_m <- ddbGetQuery(
+  "
+  SELECT count(distinct acc_number) as number_customers,
+         year(trans_date) as year, 
+         month(trans_date) as month 
+  FROM ? t 
+  SEMI JOIN ? a
+         ON t.acc_number = a.account_number
+  GROUP BY (year, month)
+  ORDER BY (year, month);
+  ", 
+  t = TRANSACTIONS_PATH,
+  a = DATA_PATH
+  ) |>
+  dplyr::mutate(
+    date = as.Date(
+      paste(
+        year, 
+        formatC(month, width = 2, format = "d", flag = "0"), 
+        "01", 
+        sep = "-"
+      ),
+    ),
+    number_customers = formatC(
+      number_customers, 
+      big.mark = ",", 
+      format = "f", 
+      digits = 0
+    )
+  ) |>
+  dplyr::select(
+    "Number Customers" = number_customers,
+    "Month" = date
+  )
+
+c_per_m |>
+  tinytable::tt() |>
+  tinytable::format_tt(
+    j = c(1, 2),
+    date = "%b %Y"
+  ) |>
+  tinytable::style_tt(j = c(1, 2), align = "c") |>
+  tinytable::style_tt(
+    i = c(0, nrow(c_per_m)), 
+    line = "tb", 
+    line_width = 0.1,
+    line_color = "#593196"
+  ) |>
+  tinytable::style_tt(
+    i = seq(from = 1, to = nrow(c_per_m), by = 2), 
+    background = "#593196",
+    color = "white"
+  )
+```
+
+## No transactions
+
+There are `r prettyNum(sum(is.na(df$transactions_count)), big.mark = ",")` customers with no transactions.
