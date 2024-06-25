@@ -13,7 +13,7 @@ RUN R -e "options(warn = 2); pak::pak( \
     'dbplyr', \ 
     'dplyr', \
     'duckdb', \ 
-    'ggplot2' \
+    'ggplot2', \
     'tinytable' \
     ))"
 
